@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ringside arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;800;900&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="./"><i></i>Ringside</a>
+  <nav class="tabs" role="tablist">
+    <a href="#bout" data-view="bout">Blind bout</a>
+    <a href="#debate" data-view="debate">Debate</a>
+    <a href="#gauntlet" data-view="gauntlet">Gauntlet</a>
+    <a href="#scorecard" data-view="scorecard">Scorecard</a>
+  </nav>
+  <div class="right">
+    <span class="pill" id="status">Checking key</span>
+    <button class="ghost" id="openSettings">Settings</button>
+  </div>
+</header>
+
+<main>
+  <!-- BLIND BOUT -->
+  <section class="view" id="view-bout">
+    <div class="composer">
+      <label for="boutPrompt" class="h">Throw a prompt</label>
+      <textarea id="boutPrompt" rows="3" placeholder="Explain quantum tunneling to a bored teenager in 5 sentences."></textarea>
+      <div class="row">
+        <div class="pick">
+          <label>Red corner<select id="boutA"></select></label>
+          <label>Blue corner<select id="boutB"></select></label>
+          <label class="check"><input type="checkbox" id="boutRandom" checked> Random contenders from the newest 40</label>
+        </div>
+        <div class="row-end">
+          <button class="ghost" id="boutSuggest">Surprise me</button>
+          <button class="big" id="boutGo">Ring the bell</button>
+        </div>
+      </div>
+    </div>
+    <div class="ring" id="boutRing" hidden>
+      <article class="corner red">
+        <header><b class="who" id="whoA">Red corner</b><span class="meta" id="metaA"></span></header>
+        <div class="out md" id="outA"></div>
+      </article>
+      <article class="corner blue">
+        <header><b class="who" id="whoB">Blue corner</b><span class="meta" id="metaB"></span></header>
+        <div class="out md" id="outB"></div>
+      </article>
+    </div>
+    <div class="verdict" id="boutVerdict" hidden>
+      <span class="h">Score the fight</span>
+      <div class="vbtns">
+        <button data-v="a" class="vred">Red wins</button>
+        <button data-v="t">Draw</button>
+        <button data-v="b" class="vblue">Blue wins</button>
+        <button data-v="x" class="vx">Both lose</button>
+      </div>
+    </div>
+    <div class="reveal" id="boutReveal" hidden></div>
+  </section>
+
+  <!-- DEBATE -->
+  <section class="view" id="view-debate" hidden>
+    <div class="composer">
+      <label for="motion" class="h">The motion</label>
+      <input id="motion" placeholder="This house believes AI agents should be allowed to spend money on your behalf.">
+      <div class="row">
+        <div class="pick">
+          <label>For<select id="debA"></select></label>
+          <label>Against<select id="debB"></select></label>
+          <label>Judge<select id="debJ"></select></label>
+          <label>Rounds<select id="debR"><option>1</option><option selected>2</option><option>3</option></select></label>
+        </div>
+        <div class="row-end"><button class="ghost" id="motionSuggest">New motion</button><button class="big" id="debGo">Open the debate</button></div>
+      </div>
+    </div>
+    <div class="transcript" id="debOut"></div>
+  </section>
+
+  <!-- GAUNTLET -->
+  <section class="view" id="view-gauntlet" hidden>
+    <div class="composer">
+      <label for="gPrompt" class="h">One prompt, many fighters</label>
+      <textarea id="gPrompt" rows="3" placeholder="Write a regex that matches valid US phone numbers and explain it."></textarea>
+      <div class="chips" id="gChips"></div>
+      <div class="row">
+        <div class="pick"><label class="grow">Add a fighter<select id="gAdd"><option value="">Choose a model</option></select></label></div>
+        <div class="row-end"><button class="ghost" id="gFill">Fill with newest 4</button><button class="big" id="gGo">Run the gauntlet</button></div>
+      </div>
+    </div>
+    <div class="board" id="gBoard" hidden>
+      <table><thead><tr><th>Fighter</th><th>First token</th><th>Speed</th><th>Tokens</th><th>Cost</th><th></th></tr></thead><tbody id="gRows"></tbody></table>
+    </div>
+    <div class="ggrid" id="gGrid"></div>
+  </section>
+
+  <!-- SCORECARD -->
+  <section class="view" id="view-scorecard" hidden>
+    <div class="score-head">
+      <h1 class="display">Your scorecard</h1>
+      <div class="row-end"><button class="ghost" id="copyScore">Copy as JSON</button><button class="ghost danger" id="resetScore">Reset</button></div>
+    </div>
+    <div class="belt" id="belt"></div>
+    <table class="rank"><thead><tr><th>#</th><th>Fighter</th><th>Rating</th><th>W</th><th>L</th><th>D</th><th>Win rate</th></tr></thead><tbody id="rankRows"></tbody></table>
+    <h2 class="display sub">Fight history</h2>
+    <ol class="history" id="history"></ol>
+  </section>
+</main>
+
+<dialog id="settings">
+  <form method="dialog" class="sheet">
+    <h2 class="display">Settings</h2>
+    <p>If the server has an <code>OPENROUTER_API_KEY</code>, you don't need anything here. Otherwise paste your own key. It stays in this browser.</p>
+    <label>OpenRouter key<input id="sKey" type="password" placeholder="sk-or-..." autocomplete="off"></label>
+    <label>Access code (if the owner set one)<input id="sCode" type="password" autocomplete="off"></label>
+    <label>Max tokens per answer<input id="sMax" type="number" min="128" max="8192" step="128" value="1200"></label>
+    <div class="row-end"><button value="cancel" class="ghost">Close</button><button id="sSave" value="ok" class="big">Save</button></div>
+  </form>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+<script type="module" src="assets/app.js"></script>
+</body>
+</html>
