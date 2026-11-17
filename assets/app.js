@@ -51,16 +51,20 @@ async function loadModels() {
   $('#debA').value = pref(/claude/, 0); $('#debB').value = pref(/gemini|openai/, 1); $('#debJ').value = (state.models.find(m => /deepseek|qwen|kimi|moonshot/.test(m.id) && m.id !== $('#debA').value && m.id !== $('#debB').value) || state.models[2] || state.models[0]).id;
 }
 
+let serverCfg = null;
 async function checkKey() {
-  let configured = false;
-  try { const r = await fetch('/api/chat'); configured = (await r.json()).configured; } catch {}
+  if (!serverCfg) { try { const r = await fetch('/api/chat'); serverCfg = await r.json(); } catch { serverCfg = {}; } }
+  const configured = !!serverCfg.configured;
+  $('#openSettings').textContent = cfg.key ? 'API key added' : configured ? 'API key' : 'Add API key';
+  $('#openSettings').classList.toggle('needs-key', !configured && !cfg.key);
+  $('#sCodeRow').hidden = !serverCfg.accessCode || !!cfg.key;
   state.live = configured || !!cfg.key; state.demo = !state.live;
   const p = $('#status'); p.className = 'pill ' + (state.live ? 'live' : 'demo');
-  p.textContent = state.live ? 'Live key' : 'Demo mode';
+  p.textContent = state.live ? (cfg.key ? 'Your key' : 'Live') : 'Demo mode';
   $$('.banner').forEach(b => b.remove());
   if (state.demo) {
     const b = document.createElement('div'); b.className = 'banner';
-    b.innerHTML = `<span>Demo mode: fights use practice sparring partners. Add an OpenRouter key to fight real models.</span><button>Add a key</button>`;
+    b.innerHTML = `<span>Demo mode: these are practice answers. Add your own OpenRouter key to fight real models. It stays in your browser.</span><button>Add your key</button>`;
     b.querySelector('button').onclick = openSettings; $('main').prepend(b);
   }
 }
@@ -79,9 +83,11 @@ async function* demoStream(seed) {
 }
 async function* orStream(model, messages, opts = {}, signal) {
   if (state.demo) { yield* demoStream(model.length + messages.length + (opts.seed || 0)); return; }
-  const h = { 'content-type': 'application/json' }; if (cfg.key) h['x-user-key'] = cfg.key; if (cfg.code) h['x-access-code'] = cfg.code;
-  const r = await fetch('/api/chat', { method: 'POST', headers: h, body: JSON.stringify({ model, messages, max_tokens: opts.max || cfg.max, temperature: opts.temperature }), signal });
-  if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error?.message || `${model} refused the fight (${r.status})`); }
+  const payload = { model, messages, max_tokens: opts.max || cfg.max, temperature: opts.temperature, stream: true, usage: { include: true } };
+  let r;
+  if (cfg.key) r = await fetch('https://openrouter.ai/api/v1/chat/completions', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.key}`, 'HTTP-Referer': location.origin, 'X-Title': 'Ringside' }, body: JSON.stringify(payload), signal });
+  else { const h = { 'content-type': 'application/json' }; if (cfg.code) h['x-access-code'] = cfg.code; r = await fetch('/api/chat', { method: 'POST', headers: h, body: JSON.stringify(payload), signal }); }
+  if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(r.status === 401 ? 'OpenRouter rejected the key. Check it in your API key settings.' : r.status === 402 ? 'Your OpenRouter account is out of credits.' : j.error?.message || `${model} refused the fight (${r.status})`); }
   const reader = r.body.getReader(), dec = new TextDecoder(); let buf = '';
   while (true) {
     const { value, done } = await reader.read(); if (done) break; buf += dec.decode(value, { stream: true });
@@ -250,9 +256,16 @@ $('#resetScore').onclick = () => { if ($('#resetScore').dataset.armed) { LS.set(
 $('#copyScore').onclick = async () => { try { await navigator.clipboard.writeText(JSON.stringify({ ratings: board(), history: hist() }, null, 2)); toast('Scorecard copied'); } catch { toast('Copy blocked by the browser'); } };
 
 /* Settings */
-function openSettings() { $('#sKey').value = cfg.key; $('#sCode').value = cfg.code; $('#sMax').value = cfg.max; $('#settings').showModal(); }
-$('#openSettings').onclick = openSettings;
-$('#sSave').onclick = () => { LS.set('rs.key', $('#sKey').value.trim()); LS.set('rs.code', $('#sCode').value.trim()); LS.set('rs.max', Math.max(128, Math.min(8192, +$('#sMax').value || 1200))); toast('Settings saved'); checkKey(); };
+function openSettings(reason) { $('#sKey').value = cfg.key; $('#sCode').value = cfg.code; $('#sMax').value = cfg.max; const st = $('#sStatus'); st.textContent = typeof reason === 'string' ? reason : ''; st.dataset.kind = ''; $('#settings').showModal(); setTimeout(() => $('#sKey').focus(), 50); }
+$('#openSettings').onclick = () => openSettings();
+async function testOpenRouter(key) { try { const r = await fetch('https://openrouter.ai/api/v1/key', { headers: { authorization: `Bearer ${key}` } }); if (r.ok) return { ok: true }; return { ok: false, message: r.status === 401 ? 'OpenRouter rejected that key. Copy it again from openrouter.ai/keys.' : `OpenRouter answered ${r.status}.` }; } catch (e) { return { ok: false, message: `Couldn't reach OpenRouter: ${e.message}` }; } }
+$('#sSave').onclick = async (e) => {
+  e.preventDefault(); const key = $('#sKey').value.trim(); const st = $('#sStatus');
+  LS.set('rs.code', $('#sCode').value.trim()); LS.set('rs.max', Math.max(128, Math.min(8192, +$('#sMax').value || 1200)));
+  if (key && key !== cfg.key) { $('#sSave').disabled = true; st.textContent = 'Checking the key with OpenRouter'; st.dataset.kind = ''; const t = await testOpenRouter(key); $('#sSave').disabled = false; if (!t.ok) { st.textContent = t.message; st.dataset.kind = 'error'; return; } }
+  LS.set('rs.key', key); $('#settings').close(); toast(key ? 'Key saved in this browser' : 'Settings saved'); checkKey();
+};
+$('#sForget').onclick = () => { LS.set('rs.key', ''); $('#settings').close(); toast('Key removed from this browser'); checkKey(); };
 
 /* keyboard: Cmd/Ctrl+Enter fires the current view */
 addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { const v = location.hash.slice(1) || 'bout'; ({ bout: '#boutGo', debate: '#debGo', gauntlet: '#gGo' }[v] && $({ bout: '#boutGo', debate: '#debGo', gauntlet: '#gGo' }[v]).click()); } });

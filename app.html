@@ -19,7 +19,7 @@
   </nav>
   <div class="right">
     <span class="pill" id="status">Checking key</span>
-    <button class="ghost" id="openSettings">Settings</button>
+    <button class="ghost" id="openSettings">Add API key</button>
   </div>
 </header>
 
@@ -113,12 +113,13 @@
 
 <dialog id="settings">
   <form method="dialog" class="sheet">
-    <h2 class="display">Settings</h2>
-    <p>If the server has an <code>OPENROUTER_API_KEY</code>, you don't need anything here. Otherwise paste your own key. It stays in this browser.</p>
-    <label>OpenRouter key<input id="sKey" type="password" placeholder="sk-or-..." autocomplete="off"></label>
-    <label>Access code (if the owner set one)<input id="sCode" type="password" autocomplete="off"></label>
+    <h2 class="display">Your API key</h2>
+    <p>Ringside runs on your own OpenRouter key, so one key reaches every model. It's saved only in this browser and sent straight to OpenRouter, never to this site's server. <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">Get a key</a></p>
+    <label>OpenRouter key<input id="sKey" type="password" placeholder="sk-or-..." autocomplete="off" spellcheck="false"></label>
+    <label id="sCodeRow" hidden>Access code<input id="sCode" type="password" autocomplete="off"></label>
     <label>Max tokens per answer<input id="sMax" type="number" min="128" max="8192" step="128" value="1200"></label>
-    <div class="row-end"><button value="cancel" class="ghost">Close</button><button id="sSave" value="ok" class="big">Save</button></div>
+    <p id="sStatus" class="kstatus" role="status" aria-live="polite"></p>
+    <div class="row-end"><button type="button" id="sForget" class="ghost">Remove key</button><button value="cancel" class="ghost">Close</button><button id="sSave" value="ok" class="big">Save key</button></div>
   </form>
 </dialog>
 <div class="toast" id="toast" role="status"></div>
